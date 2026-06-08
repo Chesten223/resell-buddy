@@ -69,6 +69,7 @@
         <button class="rb-btn" id="rb-community">🔄 Share Community Feed</button>
         <button class="rb-btn" id="rb-like">❤️ Like Feed Items</button>
         <button class="rb-btn" id="rb-follow">👤 Follow Users</button>
+        <button class="rb-btn" id="rb-stop" style="display:none;background:#ef4444;color:white;border-color:#ef4444">⏹ Stop</button>
         <div id="rb-status">Ready</div>
         <div id="rb-counter">0 actions</div>
       </div>
@@ -105,6 +106,7 @@
 
     let actionCount = 0;
     let running = false;
+    let abortController = new AbortController();
 
     const statusEl = panel.querySelector("#rb-status");
     const counterEl = panel.querySelector("#rb-counter");
@@ -119,14 +121,31 @@
       panel.querySelectorAll(".rb-btn").forEach((b) => (b.disabled = false));
     }
 
+    function setRunning(isRunning) {
+      running = isRunning;
+      const stopBtn = panel.querySelector("#rb-stop");
+      if (isRunning) {
+        disableButtons();
+        stopBtn.style.display = "block";
+      } else {
+        enableButtons();
+        stopBtn.style.display = "none";
+      }
+    }
+
+    panel.querySelector("#rb-stop").addEventListener("click", () => {
+      abortController.abort();
+      updateStatus("⏹ Stopping...");
+    });
+
     // ── Share My Listings ──
 
     // Uses real Poshmark selectors from open-source analysis
     panel.querySelector("#rb-share").addEventListener("click", async () => {
       if (running) return;
       if (!(await checkLimit())) return;
-      running = true;
-      disableButtons();
+      abortController = new AbortController();
+      setRunning(true);
       const settings = await getSettings();
       const count = settings?.poshmark?.autoShareCount || 50;
       const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
@@ -137,7 +156,10 @@
       // Scroll to load all listings (Poshmark lazy-loads)
       let lastImgCount = 0;
       let stableCount = 0;
-      while (stableCount < 2) {
+      let scrollAttempts = 0;
+      const maxScrollAttempts = 30; // Safety: max 30 scroll iterations
+      while (stableCount < 2 && scrollAttempts < maxScrollAttempts) {
+        scrollAttempts++;
         const imgs = document.querySelectorAll('a[href*="/listing/"] img');
         if (imgs.length === lastImgCount) {
           stableCount++;
@@ -195,16 +217,15 @@
       }
 
       updateStatus(`✅ Done! Shared ${shared} listings.`);
-      running = false;
-      enableButtons();
+      setRunning(false);
     });
 
     // ── Share Community Feed ──
     panel.querySelector("#rb-community").addEventListener("click", async () => {
       if (running) return;
       if (!(await checkLimit())) return;
-      running = true;
-      disableButtons();
+      abortController = new AbortController();
+      setRunning(true);
       const settings = await getSettings();
       const count = settings?.poshmark?.autoShareCount || 50;
       const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
@@ -236,16 +257,15 @@
       }
 
       updateStatus(`✅ Done! ${shared} feed items shared.`);
-      running = false;
-      enableButtons();
+      setRunning(false);
     });
 
     // ── Like Feed Items ──
     panel.querySelector("#rb-like").addEventListener("click", async () => {
       if (running) return;
       if (!(await checkLimit())) return;
-      running = true;
-      disableButtons();
+      abortController = new AbortController();
+      setRunning(true);
       const settings = await getSettings();
       const count = settings?.poshmark?.autoLikeCount || 30;
       const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
@@ -273,16 +293,15 @@
       }
 
       updateStatus(`✅ Done! Liked ${liked} items.`);
-      running = false;
-      enableButtons();
+      setRunning(false);
     });
 
     // ── Follow Users ──
     panel.querySelector("#rb-follow").addEventListener("click", async () => {
       if (running) return;
       if (!(await checkLimit())) return;
-      running = true;
-      disableButtons();
+      abortController = new AbortController();
+      setRunning(true);
       const settings = await getSettings();
       const count = settings?.poshmark?.autoFollowCount || 20;
       const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
@@ -310,8 +329,7 @@
       }
 
       updateStatus(`✅ Done! Followed ${followed} users.`);
-      running = false;
-      enableButtons();
+      setRunning(false);
     });
 
     log("ResellBuddy panel injected on Poshmark");
