@@ -172,33 +172,84 @@
       if (running) return;
       running = true;
       disableButtons();
+    // ── Share My Closet Listings ──
+    // Uses real Poshmark selectors from open-source analysis
+    panel.querySelector("#rb-share").addEventListener("click", async () => {
+      if (running) return;
+      running = true;
+      disableButtons();
       const settings = await getSettings();
-      const count = settings?.poshmark?.autoFollowCount || 20;
+      const count = settings?.poshmark?.autoShareCount || 50;
       const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
 
-      updateStatus(`Following ${count} users...`);
+      updateStatus(`Loading closet... scrolling to find listings`);
+      log(`Starting closet share — target: ${count}`);
 
-      const followBtns = document.querySelectorAll('.follow-btn:not(.is-following)');
-      const toFollow = Array.from(followBtns).slice(0, count);
+      // Scroll to load all listings (Poshmark lazy-loads)
+      let lastImgCount = 0;
+      let stableCount = 0;
+      while (stableCount < 2) {
+        const imgs = document.querySelectorAll('a[href*="/listing/"] img');
+        if (imgs.length === lastImgCount) {
+          stableCount++;
+        } else {
+          stableCount = 0;
+          lastImgCount = imgs.length;
+          imgs[imgs.length - 1]?.scrollIntoView({ behavior: "smooth" });
+        }
+        await randomDelay(2, 3);
+      }
 
-      for (let i = 0; i < toFollow.length; i++) {
+      // Click "available" filter if present
+      const availableFilter = document.querySelector('input[value*="available"]');
+      if (availableFilter) availableFilter.click();
+      await randomDelay(1, 2);
+
+      // Get listing containers via col divs
+      const listingImgs = document.querySelectorAll('a[href*="/listing/"] img');
+      const toShare = Array.from(listingImgs).slice(0, count);
+      updateStatus(`Found ${toShare.length} listings. Sharing...`);
+
+      let shared = 0;
+      for (let i = 0; i < toShare.length; i++) {
         try {
-          toFollow[i].click();
-          incrementCounter();
-          updateStatus(`Followed ${i + 1}/${toFollow.length}`);
+          const img = toShare[i];
+          const col = img.closest('div[class*="col"]');
+          if (!col) continue;
+
+          // Skip sold/unavailable
+          if (col.querySelector('.sold-tag, .not-for-sale-tag')) continue;
+          // Skip already shared
+          if (col.querySelector('.progress-bar-checkmark')) continue;
+
+          const shareBtn = col.querySelector('div[data-et-name="share"]');
+          if (!shareBtn) continue;
+
+          // Highlight and click share
+          shareBtn.style.backgroundColor = "#7c3aed";
+          shareBtn.click();
+          await randomDelay(1, 2);
+
+          // Click "Share to My Followers" in the modal
+          const followerShare = document.querySelector('a[data-et-name="share_poshmark"] div');
+          if (followerShare) {
+            followerShare.click();
+            shared++;
+            incrementCounter();
+            updateStatus(`Shared ${shared}/${toShare.length}`);
+          }
           await randomDelay(delayMin, delayMax);
         } catch (e) {
-          log(`Error following user ${i}: ${e.message}`);
+          log(`Error sharing listing ${i}: ${e.message}`);
         }
       }
 
-      updateStatus(`Done! ${actionCount} total actions.`);
+      updateStatus(`✅ Done! Shared ${shared} listings.`);
       running = false;
       enableButtons();
     });
 
     // ── Share Community Feed ──
-
     panel.querySelector("#rb-community").addEventListener("click", async () => {
       if (running) return;
       running = true;
@@ -209,21 +260,100 @@
 
       updateStatus(`Sharing ${count} feed items...`);
 
-      const shareBtns = document.querySelectorAll(".share-action");
+      const shareBtns = document.querySelectorAll('div[data-et-name="share"]');
       const toShare = Array.from(shareBtns).slice(0, count);
+      let shared = 0;
 
       for (let i = 0; i < toShare.length; i++) {
         try {
+          toShare[i].style.backgroundColor = "#22c55e";
           toShare[i].click();
-          incrementCounter();
-          updateStatus(`Shared feed ${i + 1}/${toShare.length}`);
+          await randomDelay(1, 2);
+
+          const followerShare = document.querySelector('a[data-et-name="share_poshmark"] div');
+          if (followerShare) {
+            followerShare.click();
+            shared++;
+            incrementCounter();
+            updateStatus(`Shared feed ${shared}/${toShare.length}`);
+          }
           await randomDelay(delayMin, delayMax);
         } catch (e) {
-          log(`Error sharing feed item ${i}: ${e.message}`);
+          log(`Error sharing feed ${i}: ${e.message}`);
         }
       }
 
-      updateStatus(`Done! ${actionCount} total actions.`);
+      updateStatus(`✅ Done! ${shared} feed items shared.`);
+      running = false;
+      enableButtons();
+    });
+
+    // ── Like Feed Items ──
+    panel.querySelector("#rb-like").addEventListener("click", async () => {
+      if (running) return;
+      running = true;
+      disableButtons();
+      const settings = await getSettings();
+      const count = settings?.poshmark?.autoLikeCount || 30;
+      const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
+
+      updateStatus(`Liking ${count} items...`);
+
+      // Poshmark like button: div[data-et-name="like"] or .social-action-bar__like
+      const likeBtns = document.querySelectorAll('div[data-et-name="like"]');
+      const toLike = Array.from(likeBtns)
+        .filter((btn) => !btn.classList.contains("liked"))
+        .slice(0, count);
+      let liked = 0;
+
+      for (let i = 0; i < toLike.length; i++) {
+        try {
+          toLike[i].click();
+          liked++;
+          incrementCounter();
+          updateStatus(`Liked ${liked}/${toLike.length}`);
+          await randomDelay(delayMin, delayMax);
+        } catch (e) {
+          log(`Error liking ${i}: ${e.message}`);
+        }
+      }
+
+      updateStatus(`✅ Done! Liked ${liked} items.`);
+      running = false;
+      enableButtons();
+    });
+
+    // ── Follow Users ──
+    panel.querySelector("#rb-follow").addEventListener("click", async () => {
+      if (running) return;
+      running = true;
+      disableButtons();
+      const settings = await getSettings();
+      const count = settings?.poshmark?.autoFollowCount || 20;
+      const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
+
+      updateStatus(`Following ${count} users...`);
+
+      // Poshmark follow: button[data-et-name="follow"] or .follow-btn
+      const followBtns = document.querySelectorAll(
+        'button[data-et-name="follow"], .follow-btn, [data-et-name="user_follow"]'
+      );
+      const toFollow = Array.from(followBtns).slice(0, count);
+      let followed = 0;
+
+      for (let i = 0; i < toFollow.length; i++) {
+        try {
+          toFollow[i].click();
+          followed++;
+          incrementCounter();
+          updateStatus(`Followed ${followed}/${toFollow.length}`);
+          await randomDelay(delayMin, delayMax);
+        } catch (e) {
+          log(`Error following ${i}: ${e.message}`);
+        }
+      }
+
+      updateStatus(`✅ Done! Followed ${followed} users.`);
       running = false;
       enableButtons();
     });
