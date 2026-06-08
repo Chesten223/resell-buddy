@@ -128,4 +128,40 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+
+  // Export/Import settings
+  document.getElementById("export-settings").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "getSettings" }, (settings) => {
+      const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "resellbuddy-settings.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  });
+
+  document.getElementById("import-settings").addEventListener("click", () => {
+    document.getElementById("import-file").click();
+  });
+
+  document.getElementById("import-file").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const imported = JSON.parse(reader.result);
+        chrome.runtime.sendMessage({ type: "saveSettings", settings: imported }, () => {
+          statusDiv.textContent = "✅ Settings imported!";
+          statusDiv.className = "status pro";
+        });
+      } catch {
+        statusDiv.textContent = "❌ Invalid settings file";
+        statusDiv.className = "status err";
+      }
+    };
+    reader.readAsText(file);
+  });
 });
