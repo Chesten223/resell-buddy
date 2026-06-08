@@ -44,6 +44,24 @@
 
   <div class="divider"></div>
 
+  <h3>⏰ Scheduler (Pro)</h3>
+  <label>Enable Auto-Share Schedule</label>
+  <div class="row">
+    <div><label>Interval (hours)</label><input type="number" id="sched-interval" value="4" min="1" max="24"></div>
+    <div><label>Actions/Run</label><input type="number" id="sched-actions" value="20" min="1" max="100"></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <div><label>Start Hour (0-23)</label><input type="number" id="sched-start" value="8" min="0" max="23"></div>
+    <div><label>End Hour (0-23)</label><input type="number" id="sched-end" value="22" min="0" max="23"></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button class="btn btn-primary" id="sched-enable" style="flex:1">▶ Start Schedule</button>
+    <button class="btn btn-secondary" id="sched-disable" style="flex:1">⏹ Stop</button>
+  </div>
+  <div class="status" id="sched-status">Scheduler inactive</div>
+
+  <div class="divider"></div>
+
   <h3>Pro License</h3>
   <label>License Key</label>
   <input type="text" id="license-key" placeholder="Enter your license key">

@@ -39,13 +39,20 @@ document.addEventListener("DOMContentLoaded", () => {
         ],
       },
       mercari: { autoLike: false, autoLikeCount: 30 },
-      schedule: { enabled: false, times: [] },
+      schedule: {
+        enabled: false,
+        interval: parseInt(document.getElementById("sched-interval")?.value) || 4,
+        actionsPerRun: parseInt(document.getElementById("sched-actions")?.value) || 20,
+        startHour: parseInt(document.getElementById("sched-start")?.value) || 8,
+        endHour: parseInt(document.getElementById("sched-end")?.value) || 22,
+      },
       license: { key: "", isPremium: false, validatedAt: null },
     };
 
     // Preserve license info
     chrome.runtime.sendMessage({ type: "getSettings" }, (current) => {
       if (current?.license) settings.license = current.license;
+      if (current?.schedule) settings.schedule.enabled = current.schedule.enabled;
       chrome.runtime.sendMessage({ type: "saveSettings", settings }, () => {
         statusDiv.textContent = "✅ Settings saved!";
         statusDiv.className = "status pro";
@@ -70,6 +77,42 @@ document.addEventListener("DOMContentLoaded", () => {
       } else {
         statusDiv.textContent = "❌ Invalid license key";
         statusDiv.className = "status err";
+      }
+    });
+  });
+
+  // Scheduler controls
+  const schedStatus = document.getElementById("sched-status");
+
+  document.getElementById("sched-enable").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "isPremium" }, (resp) => {
+      if (!resp?.premium) {
+        schedStatus.textContent = "❌ Pro required for scheduler";
+        schedStatus.className = "status err";
+        return;
+      }
+      chrome.runtime.sendMessage({
+        type: "startScheduler",
+        config: {
+          interval: parseInt(document.getElementById("sched-interval").value) || 4,
+          actionsPerRun: parseInt(document.getElementById("sched-actions").value) || 20,
+          startHour: parseInt(document.getElementById("sched-start").value) || 8,
+          endHour: parseInt(document.getElementById("sched-end").value) || 22,
+        },
+      }, (response) => {
+        if (response?.ok) {
+          schedStatus.textContent = "✅ Scheduler running";
+          schedStatus.className = "status pro";
+        }
+      });
+    });
+  });
+
+  document.getElementById("sched-disable").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "stopScheduler" }, (response) => {
+      if (response?.ok) {
+        schedStatus.textContent = "Scheduler stopped";
+        schedStatus.className = "status";
       }
     });
   });

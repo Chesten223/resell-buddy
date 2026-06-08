@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0a"/>
+      <stop offset="100%" style="stop-color:#1a1a2e"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#22c55e"/>
+    </linearGradient>
+  </defs>
+  <rect width="440" height="280" fill="url(#bg)" rx="12"/>
+  <text x="220" y="80" text-anchor="middle" font-family="system-ui, sans-serif" font-size="48" font-weight="800" fill="white">📦</text>
+  <text x="220" y="120" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="white">ResellBuddy</text>
+  <rect x="120" y="140" width="200" height="3" fill="url(#accent)" rx="2"/>
+  <text x="220" y="175" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" fill="#9ca3af">Automate Poshmark &amp; Mercari</text>
+  <text x="220" y="200" text-anchor="middle" font-family="system-ui, sans-serif" font-size="16" fill="#9ca3af">Share · Like · Follow · Schedule</text>
+  <rect x="160" y="225" width="120" height="32" fill="#22c55e" rx="16"/>
+  <text x="220" y="246" text-anchor="middle" font-family="system-ui, sans-serif" font-size="13" font-weight="600" fill="#000">FREE to Start</text>
+</svg>

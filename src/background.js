@@ -135,17 +135,63 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+  if (msg.type === "startScheduler") {
+    const { interval, actionsPerRun, startHour, endHour } = msg.config;
+    // Create repeating alarm
+    chrome.alarms.create("resellbuddy-poshmark", {
+      periodInMinutes: interval * 60,
+      delayInMinutes: 1,
+    });
+    // Save schedule config
+    chrome.storage.local.get("settings", (data) => {
+      const settings = data.settings || DEFAULT_SETTINGS;
+      settings.schedule = {
+        enabled: true,
+        interval,
+        actionsPerRun,
+        startHour,
+        endHour,
+      };
+      chrome.storage.local.set({ settings });
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
+  if (msg.type === "stopScheduler") {
+    chrome.alarms.clear("resellbuddy-poshmark");
+    chrome.storage.local.get("settings", (data) => {
+      const settings = data.settings || DEFAULT_SETTINGS;
+      settings.schedule.enabled = false;
+      chrome.storage.local.set({ settings });
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
 });
 
 // Alarm-based scheduling for auto-actions
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name.startsWith("resellbuddy-")) {
-    // Send wake-up message to matching content script tab
     const platform = alarm.name.replace("resellbuddy-", "");
-    chrome.tabs.query({ url: `https://${platform}.com/*` }, (tabs) => {
-      if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { type: "runScheduled", platform });
-      }
+
+    // Check time window
+    chrome.storage.local.get("settings", (data) => {
+      const sched = data.settings?.schedule;
+      if (!sched?.enabled) return;
+
+      const hour = new Date().getHours();
+      if (hour < sched.startHour || hour >= sched.endHour) return;
+
+      // Send wake-up message to matching content script tab
+      chrome.tabs.query({ url: `https://${platform}.com/*` }, (tabs) => {
+        if (tabs[0]) {
+          chrome.tabs.sendMessage(tabs[0].id, {
+            type: "runScheduled",
+            platform,
+            actionCount: sched.actionsPerRun || 20,
+          });
+        }
+      });
     });
   }
 });
