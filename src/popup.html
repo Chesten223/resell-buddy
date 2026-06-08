@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { width: 340px; font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 16px; }
+    h2 { font-size: 16px; color: #7c3aed; margin-bottom: 8px; }
+    h3 { font-size: 13px; color: #888; margin: 12px 0 6px; text-transform: uppercase; }
+    label { font-size: 12px; color: #aaa; display: block; margin: 6px 0 2px; }
+    input[type="number"], input[type="text"] {
+      width: 100%; padding: 6px 8px; border: 1px solid #333; border-radius: 4px;
+      background: #0a0a1a; color: #eee; font-size: 12px;
+    }
+    input:focus { border-color: #7c3aed; outline: none; }
+    .row { display: flex; gap: 8px; }
+    .row > div { flex: 1; }
+    .btn {
+      display: block; width: 100%; padding: 8px; border: none; border-radius: 6px;
+      cursor: pointer; font-size: 13px; font-weight: 600; margin-top: 8px;
+    }
+    .btn-primary { background: #7c3aed; color: white; }
+    .btn-secondary { background: #0f3460; color: #ccc; }
+    .status { font-size: 12px; margin-top: 8px; text-align: center; }
+    .status.pro { color: #22c55e; }
+    .status.err { color: #e74c3c; }
+    .divider { border-top: 1px solid #222; margin: 12px 0; }
+  </style>
+</head>
+<body>
+  <h2>⚡ ResellBuddy</h2>
+
+  <h3>Poshmark Settings</h3>
+  <div class="row">
+    <div><label>Share Count</label><input type="number" id="pm-share-count" value="50" min="1" max="500"></div>
+    <div><label>Like Count</label><input type="number" id="pm-like-count" value="30" min="1" max="200"></div>
+    <div><label>Follow Count</label><input type="number" id="pm-follow-count" value="20" min="1" max="100"></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <div><label>Delay Min (sec)</label><input type="number" id="pm-delay-min" value="3" min="1" max="30"></div>
+    <div><label>Delay Max (sec)</label><input type="number" id="pm-delay-max" value="8" min="1" max="60"></div>
+  </div>
+  <button class="btn btn-primary" id="save-settings">💾 Save Settings</button>
+
+  <div class="divider"></div>
+
+  <h3>Pro License</h3>
+  <label>License Key</label>
+  <input type="text" id="license-key" placeholder="Enter your license key">
+  <button class="btn btn-secondary" id="activate-license">🔑 Activate Pro</button>
+  <div style="margin-top:6px;font-size:11px;color:#666">
+    Get Pro at <a href="#" style="color:#7c3aed">resellbuddy.com</a> — $9/month
+  </div>
+
+  <div class="status" id="status">Free version — 50 actions/day limit</div>
+</body>
+<script src="src/popup.js"></script>
+</body>
+</html>
