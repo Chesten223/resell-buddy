@@ -22,6 +22,38 @@
     });
   }
 
+  const FREE_DAILY_LIMIT = 50; // Free users: 50 actions/day
+
+  async function isPremium() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "isPremium" }, (r) => resolve(r?.premium === true));
+    });
+  }
+
+  async function getUsage() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "getUsage" }, (r) => resolve(r?.usage || 0));
+    });
+  }
+
+  async function incrementUsage() {
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "incrementUsage" }, (r) => resolve(r?.usage || 0));
+    });
+  }
+
+  async function checkLimit() {
+    const premium = await isPremium();
+    if (premium) return true;
+    const usage = await getUsage();
+    if (usage >= FREE_DAILY_LIMIT) {
+      alert(`ResellBuddy: You've used ${usage}/${FREE_DAILY_LIMIT} free actions today. Upgrade to Pro for unlimited!`);
+      chrome.runtime.sendMessage({ type: "openPaymentPage" });
+      return false;
+    }
+    return true;
+  }
+
   // ── Floating Action Panel ──
 
   function createPanel() {
@@ -89,93 +121,10 @@
 
     // ── Share My Listings ──
 
-    panel.querySelector("#rb-share").addEventListener("click", async () => {
-      if (running) return;
-      running = true;
-      disableButtons();
-      const settings = await getSettings();
-      const count = settings?.poshmark?.autoShareCount || 50;
-      const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
-
-      // Navigate to my closet
-      const closetLink = document.querySelector('a[href*="/closet/"]');
-      if (!closetLink) {
-        updateStatus("Go to your closet first!");
-        running = false;
-        enableButtons();
-        return;
-      }
-
-      updateStatus(`Sharing ${count} listings...`);
-      log(`Starting to share ${count} listings`);
-
-      // Get listing cards from closet
-      const listings = document.querySelectorAll(".closet-listings .tile");
-      const toShare = Array.from(listings).slice(0, count);
-
-      for (let i = 0; i < toShare.length; i++) {
-        try {
-          // Click share button on each listing
-          const shareBtn = toShare[i].querySelector(".share-action");
-          if (shareBtn) {
-            shareBtn.click();
-            incrementCounter();
-            updateStatus(`Shared ${i + 1}/${toShare.length}`);
-            await randomDelay(delayMin, delayMax);
-          }
-        } catch (e) {
-          log(`Error sharing listing ${i}: ${e.message}`);
-        }
-      }
-
-      updateStatus(`Done! Shared ${actionCount} listings.`);
-      running = false;
-      enableButtons();
-    });
-
-    // ── Like Feed Items ──
-
-    panel.querySelector("#rb-like").addEventListener("click", async () => {
-      if (running) return;
-      running = true;
-      disableButtons();
-      const settings = await getSettings();
-      const count = settings?.poshmark?.autoLikeCount || 30;
-      const [delayMin, delayMax] = settings?.poshmark?.autoShareDelay || [3, 8];
-
-      updateStatus(`Liking ${count} items...`);
-
-      const likeButtons = document.querySelectorAll(".like-action");
-      const toLike = Array.from(likeButtons)
-        .filter((btn) => !btn.classList.contains("liked"))
-        .slice(0, count);
-
-      for (let i = 0; i < toLike.length; i++) {
-        try {
-          toLike[i].click();
-          incrementCounter();
-          updateStatus(`Liked ${i + 1}/${toLike.length}`);
-          await randomDelay(delayMin, delayMax);
-        } catch (e) {
-          log(`Error liking item ${i}: ${e.message}`);
-        }
-      }
-
-      updateStatus(`Done! ${actionCount} total actions.`);
-      running = false;
-      enableButtons();
-    });
-
-    // ── Follow Users ──
-
-    panel.querySelector("#rb-follow").addEventListener("click", async () => {
-      if (running) return;
-      running = true;
-      disableButtons();
-    // ── Share My Closet Listings ──
     // Uses real Poshmark selectors from open-source analysis
     panel.querySelector("#rb-share").addEventListener("click", async () => {
       if (running) return;
+      if (!(await checkLimit())) return;
       running = true;
       disableButtons();
       const settings = await getSettings();
@@ -236,6 +185,7 @@
             followerShare.click();
             shared++;
             incrementCounter();
+            incrementUsage();
             updateStatus(`Shared ${shared}/${toShare.length}`);
           }
           await randomDelay(delayMin, delayMax);
@@ -252,6 +202,7 @@
     // ── Share Community Feed ──
     panel.querySelector("#rb-community").addEventListener("click", async () => {
       if (running) return;
+      if (!(await checkLimit())) return;
       running = true;
       disableButtons();
       const settings = await getSettings();
@@ -275,6 +226,7 @@
             followerShare.click();
             shared++;
             incrementCounter();
+            incrementUsage();
             updateStatus(`Shared feed ${shared}/${toShare.length}`);
           }
           await randomDelay(delayMin, delayMax);
@@ -291,6 +243,7 @@
     // ── Like Feed Items ──
     panel.querySelector("#rb-like").addEventListener("click", async () => {
       if (running) return;
+      if (!(await checkLimit())) return;
       running = true;
       disableButtons();
       const settings = await getSettings();
@@ -311,6 +264,7 @@
           toLike[i].click();
           liked++;
           incrementCounter();
+          incrementUsage();
           updateStatus(`Liked ${liked}/${toLike.length}`);
           await randomDelay(delayMin, delayMax);
         } catch (e) {
@@ -326,6 +280,7 @@
     // ── Follow Users ──
     panel.querySelector("#rb-follow").addEventListener("click", async () => {
       if (running) return;
+      if (!(await checkLimit())) return;
       running = true;
       disableButtons();
       const settings = await getSettings();
@@ -346,6 +301,7 @@
           toFollow[i].click();
           followed++;
           incrementCounter();
+          incrementUsage();
           updateStatus(`Followed ${followed}/${toFollow.length}`);
           await randomDelay(delayMin, delayMax);
         } catch (e) {
