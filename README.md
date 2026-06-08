@@ -2,67 +2,76 @@
 
 > Automate your reselling on Poshmark & Mercari. Save hours every day.
 
-**The #1 Chrome extension for resellers** — auto-share, auto-like, bulk listing tools, scheduled price drops, and analytics. Built by resellers, for resellers.
-
-[![Chrome Web Store](https://img.shields.io/badge/Chrome-Web%20Store-green)](https://chromewebstore.google.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ## ✨ Features
 
 ### 🔄 Auto Share
-Automatically share your listings to Poshmark parties and followers. Get more eyes on your items without lifting a finger.
+Share your closet listings and community feed items to Posh Parties automatically. Scroll-loads all listings, skips sold/unavailable, and shares with random delays.
 
-### ❤️ Auto Like & Follow
-Like items from other closets and follow users to increase your visibility. ResellBuddy targets users who are likely to follow back.
+### ❤️ Auto Like
+Like items in your feed and search results with one click. Automatically skips already-liked items.
 
-### 📦 Bulk Listing Tools
-Create listings faster with templates, auto-fill descriptions, and batch photo uploads.
+### 👤 Auto Follow
+Follow users in your niche automatically. Build your follower base and increase closet traffic.
 
-### 💰 Smart Price Drops
-Schedule automatic price drops with custom rules. Keep your items competitive without constant monitoring.
+### ⏰ Smart Scheduler (Pro)
+Schedule auto-shares with configurable intervals and time windows (e.g., 8 AM - 10 PM). Uses Chrome's Alarm API for reliable scheduling.
 
-### 📊 Analytics Dashboard
-Track your views, likes, shares, and sales. See what's working and optimize your strategy.
+### 📊 Usage Analytics
+Track daily actions, remaining free tier quota, and estimated time saved. See your productivity at a glance.
 
-### ⏰ Scheduler
-Schedule shares, likes, and price drops to run at optimal times. ResellBuddy works while you sleep.
+### 🛑 Stop Button
+Abort any running action instantly. Full control at all times.
+
+### 📋 Export/Import Settings
+Backup your configuration to a JSON file and restore on another device.
 
 ## 💵 Pricing
 
 | Feature | Free | Pro ($9/mo) |
 |---|---|---|
-| Auto Share (basic) | ✅ 50/day | ✅ Unlimited |
-| Auto Like & Follow | ✅ 30/day | ✅ Unlimited |
-| Bulk Listing Tools | — | ✅ |
-| Smart Price Drops | — | ✅ |
-| Analytics Dashboard | — | ✅ |
+| Auto Share | ✅ 50 actions/day | ✅ Unlimited |
+| Auto Like | ✅ Included | ✅ Unlimited |
+| Auto Follow | ✅ Included | ✅ Unlimited |
 | Scheduler | — | ✅ |
-| Multi-platform (Poshmark + Mercari) | — | ✅ |
+| Mercari Support | — | ✅ |
+| Analytics | ✅ Basic | ✅ Full |
 
 ## 🚀 Install
 
-1. Install from [Chrome Web Store](https://chromewebstore.google.com/)
-2. Go to Poshmark or Mercari
-3. Click the ResellBuddy icon
-4. Start automating!
+### Option 1: Download Release
+1. Download [resellbuddy-v1.0.0.zip](https://github.com/Chesten223/resell-buddy/releases/tag/v1.0.0)
+2. Unzip the file
+3. Go to `chrome://extensions` → Enable Developer Mode → Load Unpacked
+4. Select the unzipped folder
+5. Navigate to Poshmark — the ResellBuddy panel appears automatically
+
+### Option 2: Chrome Web Store (Coming Soon)
 
 ## 🛡️ Safety
 
-- **Human-like delays** — randomized timing to mimic real user behavior
-- **Rate limiting** — stays within platform limits
+- **Human-like delays** — 3-8 second randomized intervals between actions
+- **Scroll safety** — max 30 scroll iterations to prevent infinite loops
+- **Rate limiting** — free tier capped at 50 actions/day
 - **No password required** — works with your existing logged-in session
 - **Open source** — audit the code yourself
 
+## 🔗 Companion Tools
+
+- **[Listing Analyzer](https://listing-analyzer.pages.dev)** — Free AI-powered listing optimization tool
+- **[JSON Hero](https://json-hero-8fu.pages.dev)** — Free JSON viewer/formatter for developers
+
 ## 📝 Why This Exists
 
-Resellers on Poshmark spend 2-4 hours daily on repetitive tasks: sharing listings, liking items, following users, adjusting prices. Closet Tools ($42K/month revenue) proved this is a massive market. ResellBuddy makes it accessible to everyone.
+Resellers on Poshmark spend 2-4 hours daily on repetitive tasks: sharing listings, liking items, following users. Closet Tools ($42K/month revenue) proved this is a massive market. ResellBuddy makes it accessible at $9/month — the cheapest option available.
 
 ## 🛠 Tech
 
 - Chrome Extension (Manifest V3)
-- Content scripts for Poshmark & Mercari DOM automation
+- Content scripts with real Poshmark DOM selectors
 - Background service worker for scheduling
-- ExtensionPay / Dodo Payments for licensing
+- ExtPay for licensing
 - Zero server costs — everything runs in the browser
 
 ## 📄 License
