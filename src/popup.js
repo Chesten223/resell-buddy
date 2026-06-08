@@ -23,6 +23,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Load analytics
+  chrome.runtime.sendMessage({ type: "getUsage" }, (usage) => {
+    const used = usage?.usage || 0;
+    const isPremium = document.getElementById("status").textContent.includes("Pro");
+    const limit = isPremium ? 999 : 50;
+    document.getElementById("analytics-used").textContent = used;
+    document.getElementById("analytics-remaining").textContent = isPremium ? "∞" : String(Math.max(0, limit - used));
+    // Estimate time saved: ~30 seconds per action
+    const hoursSaved = (used * 30 / 3600).toFixed(1);
+    document.getElementById("analytics-saved").textContent = hoursSaved + "h";
+  });
+
   // Save settings
   document.getElementById("save-settings").addEventListener("click", () => {
     const settings = {
