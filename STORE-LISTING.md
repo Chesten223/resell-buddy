@@ -5,23 +5,22 @@ Automate Poshmark & Mercari: share, like, and follow on autopilot. Save 3+ hours
 
 ## Detailed Description
 
-**ResellBuddy — The #1 Free Automation Tool for Resellers**
+**ResellBuddy — The #1 Free Automation Tool for Poshmark & Mercari**
 
 Stop wasting hours manually sharing, liking, and following on Poshmark and Mercari. ResellBuddy automates the repetitive tasks so you can focus on what matters — sourcing and selling.
 
 **✨ Features**
+🔄 **Auto Share** — Share your closet listings and community listings to Posh Parties with one click. Drive more eyes to your items. *(Poshmark)*
 
-🔄 **Auto Share** — Share your closet listings and community listings to Posh Parties with one click. Drive more eyes to your items.
+❤️ **Auto Like** — Automatically like items in your feed and search results. Get noticed by other sellers and buyers. *(Poshmark & Mercari)* 🆕
 
-❤️ **Auto Like** — Automatically like items in your feed and search results. Get noticed by other sellers and buyers.
-
-👤 **Auto Follow** — Follow users in your niche automatically. Build your follower base and increase your closet traffic.
+👤 **Auto Follow** — Follow users in your niche automatically. Build your follower base and increase your closet traffic. *(Poshmark & Mercari)* 🆕
 
 📊 **Usage Tracking** — Stay within platform limits with built-in daily action tracking. Free tier includes 50 actions/day.
 
 ⏰ **Smart Scheduling** — Space out your actions throughout the day for natural-looking activity patterns.
 
-🔒 **Safe & Private** — Runs entirely in your browser. No data sent to external servers. Your Poshmark credentials stay with you.
+🔒 **Safe & Private** — Runs entirely in your browser. No data sent to external servers. Your credentials stay with you.
 
 **🆓 Free Tier**
 - 50 automated actions per day
@@ -30,7 +29,7 @@ Stop wasting hours manually sharing, liking, and following on Poshmark and Merca
 
 **⚡ Pro Tier — $9/month**
 - Unlimited daily actions
-- Mercari automation
+- **Mercari automation** (auto-like & auto-follow) 🆕
 - Smart scheduling
 - Priority support
 
@@ -53,7 +52,7 @@ Productivity
 English
 
 ## Search Keywords (max 5)
-poshmark, mercari, reselling, automation, closet
+poshmark, mercari, reselling, automation, closet-tools, sell-online
 
 ## Screenshots Needed
 1. 1280x800 — Popup showing action buttons + usage tracker

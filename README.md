@@ -7,13 +7,13 @@
 ## ✨ Features
 
 ### 🔄 Auto Share
-Share your closet listings and community feed items to Posh Parties automatically. Scroll-loads all listings, skips sold/unavailable, and shares with random delays.
+Share your closet listings and community feed items to Posh Parties automatically. Scroll-loads all listings, skips sold/unavailable, and shares with random delays. **Poshmark only.**
 
 ### ❤️ Auto Like
-Like items in your feed and search results with one click. Automatically skips already-liked items.
+Like items in your feed and search results with one click. Automatically skips already-liked items. Works on **Poshmark & Mercari** 🆕
 
 ### 👤 Auto Follow
-Follow users in your niche automatically. Build your follower base and increase closet traffic.
+Follow users in your niche automatically. Build your follower base and increase closet traffic. Works on **Poshmark & Mercari** 🆕
 
 ### ⏰ Smart Scheduler (Pro)
 Schedule auto-shares with configurable intervals and time windows (e.g., 8 AM - 10 PM). Uses Chrome's Alarm API for reliable scheduling.
@@ -38,14 +38,21 @@ Backup your configuration to a JSON file and restore on another device.
 | Mercari Support | — | ✅ |
 | Analytics | ✅ Basic | ✅ Full |
 
+## 🌐 Supported Platforms
+
+| Platform | Auto Share | Auto Like | Auto Follow | Status |
+|---|---|---|---|---|
+| Poshmark | ✅ | ✅ | ✅ | Stable |
+| Mercari 🆕 | — | ✅ | ✅ | **NEW in v1.1** |
+
 ## 🚀 Install
 
 ### Option 1: Download Release
-1. Download [resellbuddy-v1.0.0.zip](https://github.com/Chesten223/resell-buddy/releases/tag/v1.0.0)
+1. Download [resellbuddy-v1.1.0.zip](https://github.com/Chesten223/resell-buddy/releases/tag/v1.1.0)
 2. Unzip the file
 3. Go to `chrome://extensions` → Enable Developer Mode → Load Unpacked
 4. Select the unzipped folder
-5. Navigate to Poshmark — the ResellBuddy panel appears automatically
+5. Navigate to Poshmark or Mercari — the ResellBuddy panel appears automatically
 
 ### Option 2: Chrome Web Store (Coming Soon)
 
@@ -63,13 +70,11 @@ Backup your configuration to a JSON file and restore on another device.
 - **[JSON Hero](https://json-hero-8fu.pages.dev)** — Free JSON viewer/formatter for developers
 
 ## 📝 Why This Exists
-
-Resellers on Poshmark spend 2-4 hours daily on repetitive tasks: sharing listings, liking items, following users. Closet Tools ($42K/month revenue) proved this is a massive market. ResellBuddy makes it accessible at $9/month — the cheapest option available.
+Resellers on Poshmark and Mercari spend 2-4 hours daily on repetitive tasks: sharing listings, liking items, following users. Closet Tools ($42K/month revenue) proved this is a massive market. ResellBuddy makes it accessible at $9/month — the cheapest option available.
 
 ## 🛠 Tech
-
 - Chrome Extension (Manifest V3)
-- Content scripts with real Poshmark DOM selectors
+- Content scripts with real Poshmark & Mercari DOM selectors
 - Background service worker for scheduling
 - ExtPay for licensing
 - Zero server costs — everything runs in the browser
