@@ -38,18 +38,15 @@ chrome.runtime.onInstalled.addListener(() => {
 
 // ExtensionPay — Free open-source payment for Chrome extensions
 // Docs: https://github.com/Glench/ExtensionPay
-// User pays via Stripe on ExtPay-hosted page, we validate locally
-const EXTPAY_ID = "resellbuddy"; // ExtPay extension ID (set after CWS registration)
+const EXTPAY_ID = "resellbuddy"; // ExtPay extension ID — registered at extensionpay.com
 let extpay = null;
 
 try {
-  // Dynamically import ExtPay if available
-  if (typeof ExtPay !== "undefined") {
-    extpay = ExtPay(EXTPAY_ID);
-    extpay.startBackground();
-  }
+  importScripts("src/ExtPay.js");
+  extpay = ExtPay(EXTPAY_ID);
+  extpay.startBackground();
 } catch (e) {
-  console.log("[ResellBuddy] ExtPay not available, using free mode");
+  console.log("[ResellBuddy] ExtPay not available, using free mode:", e.message);
 }
 
 async function isPremiumUser() {
