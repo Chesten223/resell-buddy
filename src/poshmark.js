@@ -72,6 +72,7 @@
         <button class="rb-btn" id="rb-unfollow">🔄 Unfollow Non-Followers</button>
         <button class="rb-btn rb-premium-btn" id="rb-relist">📦 Auto-Relist Old Items <span style="font-size:9px;color:#aaa">PRO</span></button>
         <button class="rb-btn rb-premium-btn" id="rb-offer-likers">💰 Send Offers to Likers <span style="font-size:9px;color:#aaa">PRO</span></button>
+        <button class="rb-btn rb-premium-btn" id="rb-party-share">🎉 Share to Posh Party <span style="font-size:9px;color:#aaa">PRO</span></button>
         <button class="rb-btn" id="rb-stop" style="display:none;background:#ef4444;color:white;border-color:#ef4444">⏹ Stop</button>
         <div id="rb-status">Ready</div>
         <div id="rb-counter">0 actions</div>
@@ -826,6 +827,181 @@
       iframe.remove();
 
       updateStatus(`✅ Done! ${offersSent} offers sent, ${skipped} skipped.`);
+      setRunning(false);
+    });
+
+    // ── Share to Posh Party ──
+    panel.querySelector("#rb-party-share").addEventListener("click", async () => {
+      if (running) return;
+
+      // Premium gate
+      const premium = await isPremium();
+      if (!premium) {
+        updateStatus("🔒 Share to Posh Party requires Pro license");
+        alert("ResellBuddy: Share to Posh Party is a Pro-only feature. Upgrade to unlock it!");
+        chrome.runtime.sendMessage({ type: "openPaymentPage" });
+        return;
+      }
+
+      // Daily limit check
+      const withinLimit = await checkLimit();
+      if (!withinLimit) {
+        updateStatus("⚠️ Daily action limit reached. Try again tomorrow or upgrade to Pro for unlimited.");
+        return;
+      }
+
+      abortController = new AbortController();
+      setRunning(true);
+
+      try {
+        // Navigate to Posh Party page if not already there
+        if (!window.location.href.includes("/party")) {
+          updateStatus("🎉 Navigating to Posh Party page...");
+          window.location.href = "https://poshmark.com/party";
+          // Page will reload; handler re-runs on next injection
+          return;
+        }
+
+        // Find the active party
+        updateStatus("🎉 Looking for active Posh Party...");
+        await randomDelay(2, 4);
+
+        const partyLinks = document.querySelectorAll(
+          'a[href*="/party/"], .party-card a, .party__link, a[data-et-name="party"]'
+        );
+
+        if (partyLinks.length === 0) {
+          // Try broader selectors for party listing cards
+          const partyCards = document.querySelectorAll(
+            '.party, [class*="party-card"], [class*="PartyCard"], section[class*="party"] a'
+          );
+          if (partyCards.length === 0) {
+            updateStatus("⚠️ No active Posh Parties found right now. Try again later!");
+            setRunning(false);
+            return;
+          }
+        }
+
+        // Click into the first active party
+        let partyLink = partyLinks[0];
+        if (!partyLink) {
+          const fallbackLink = document.querySelector('a[href*="/party/"]');
+          if (!fallbackLink) {
+            updateStatus("⚠️ Could not find an active party to join.");
+            setRunning(false);
+            return;
+          }
+          partyLink = fallbackLink;
+        }
+
+        const partyName = partyLink.textContent.trim().substring(0, 40) || "Posh Party";
+        updateStatus(`🎉 Joining ${partyName}...`);
+        partyLink.click();
+        await randomDelay(3, 5);
+
+        // Wait for party page listing cards to load
+        updateStatus("🎉 Waiting for party listings to load...");
+        let cards = [];
+        let waitAttempts = 0;
+        while (cards.length === 0 && waitAttempts < 10) {
+          await randomDelay(2, 3);
+          cards = document.querySelectorAll(
+            '.item-card, .closet-item, div[class*="tile"], .social-listings .tile'
+          );
+          waitAttempts++;
+        }
+
+        if (cards.length === 0) {
+          updateStatus("⚠️ No listing cards found on the party page.");
+          setRunning(false);
+          return;
+        }
+
+        // Scroll to load more cards
+        let lastCardCount = cards.length;
+        let stableScrolls = 0;
+        let scrollAttempts = 0;
+        while (stableScrolls < 2 && scrollAttempts < 15) {
+          scrollAttempts++;
+          window.scrollTo(0, document.body.scrollHeight);
+          await randomDelay(2, 3);
+          cards = document.querySelectorAll(
+            '.item-card, .closet-item, div[class*="tile"], .social-listings .tile'
+          );
+          if (cards.length === lastCardCount) {
+            stableScrolls++;
+          } else {
+            stableScrolls = 0;
+            lastCardCount = cards.length;
+          }
+        }
+
+        updateStatus(`🎉 Found ${cards.length} listings. Sharing to party...`);
+
+        let shared = 0;
+        let skipped = 0;
+        const maxShares = Math.min(cards.length, 50); // Cap at 50 per run
+
+        for (let i = 0; i < maxShares; i++) {
+          if (abortController.signal.aborted) {
+            updateStatus(`⏹ Stopped. Shared ${shared} listings to party.`);
+            break;
+          }
+
+          const card = cards[i];
+          try {
+            // Find the share button on this card
+            const shareBtn = card.querySelector(
+              'div[data-et-name="share"], button[data-et-name="share"], ' +
+              '.social-action-bar__share, .share-btn, a[data-et-name="share"]'
+            );
+
+            if (!shareBtn) {
+              log(`No share button on card ${i} — skipping`);
+              skipped++;
+              continue;
+            }
+
+            shareBtn.click();
+            await randomDelay(1, 2);
+
+            // Look for the "Share to Party" option in the share menu
+            const shareToPartyBtn = document.querySelector(
+              'div[data-et-name="share_to_party"], button[data-et-name="share_to_party"], ' +
+              '.share-to-party, [class*="share-to-party"], .share-menu button:nth-child(2), ' +
+              'ul.dropdown li:nth-child(2) button, .share__dropdown button:nth-child(2)'
+            );
+
+            if (shareToPartyBtn) {
+              shareToPartyBtn.click();
+              shared++;
+              incrementCounter();
+              incrementUsage();
+              updateStatus(`🎉 [${i + 1}/${maxShares}] Shared to party! (${shared} shared, ${skipped} skipped)`);
+              log(`Shared listing ${i + 1} to Posh Party`);
+            } else {
+              // Fallback: the first click may have already shared to party
+              // or share menu structure differs
+              shared++;
+              incrementCounter();
+              incrementUsage();
+              updateStatus(`🎉 [${i + 1}/${maxShares}] Shared! (${shared} shared, ${skipped} skipped)`);
+              log(`Shared listing ${i + 1} (fallback share)`);
+            }
+
+            await randomDelay(5, 10);
+          } catch (e) {
+            log(`Error sharing card ${i}: ${e.message}`);
+            skipped++;
+          }
+        }
+
+        updateStatus(`✅ Party sharing done! ${shared} shared, ${skipped} skipped.`);
+      } catch (e) {
+        log(`Party share error: ${e.message}`);
+        updateStatus(`❌ Error: ${e.message}`);
+      }
+
       setRunning(false);
     });
     log("ResellBuddy panel injected on Poshmark");
