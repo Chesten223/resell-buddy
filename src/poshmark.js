@@ -453,7 +453,11 @@
 
       let offersSent = 0;
       let skipped = 0;
-      const originalUrl = window.location.href;
+
+      // Use a hidden iframe to load each listing without destroying the content script
+      let iframe = document.createElement("iframe");
+      iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:1024px;height:768px;border:none;";
+      document.body.appendChild(iframe);
 
       for (let i = 0; i < toOffer.length; i++) {
         if (abortController.signal.aborted) {
@@ -463,27 +467,27 @@
 
         try {
           const { href } = toOffer[i];
-          updateStatus(`[${i + 1}/${toOffer.length}] Opening listing...`);
+          updateStatus(`[${i + 1}/${toOffer.length}] Loading listing...`);
 
-          // Navigate to the listing page
           const fullUrl = href.startsWith("http") ? href : `https://poshmark.com${href}`;
-          window.location.href = fullUrl;
 
-          // Wait for page to load
-          await randomDelay(3, 5);
+          // Load listing in hidden iframe
           await new Promise((resolve) => {
-            const check = setInterval(() => {
-              if (document.querySelector('.listing, [data-test="listing-page"], .social-action-bar')) {
-                clearInterval(check);
-                resolve();
-              }
-            }, 500);
-            setTimeout(() => { clearInterval(check); resolve(); }, 10000);
+            iframe.onload = resolve;
+            iframe.src = fullUrl;
+            setTimeout(resolve, 12000);
           });
-          await randomDelay(1, 2);
+          await randomDelay(2, 3);
 
-          // Check price — skip if below threshold
-          const priceEl = document.querySelector(
+          const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+          if (!iDoc) {
+            log(`Cannot access iframe for ${href} (cross-origin) — skipping`);
+            skipped++;
+            continue;
+          }
+
+          // Check price in iframe
+          const priceEl = iDoc.querySelector(
             '.listing-price, [data-test="listing-price"], .price-display, .listing__price'
           );
           if (priceEl) {
@@ -493,16 +497,14 @@
               log(`Skipping ${href} — price $${price} below threshold $${minPrice}`);
               skipped++;
               updateStatus(`[${i + 1}/${toOffer.length}] Skipped (price too low)`);
-              await randomDelay(1, 2);
               continue;
             }
           }
 
-          // Find the Offer / Make Offer button
-          const offerBtn = document.querySelector(
+          // Find Offer button in iframe
+          const offerBtn = iDoc.querySelector(
             'button[data-et-name="offer"], div[data-et-name="make_offer"], ' +
-            'button[data-et-name="make_offer"], .offer-button, ' +
-            'button:has(.offer-icon), a[data-et-name="offer"]'
+            'button[data-et-name="make_offer"], .offer-button, a[data-et-name="offer"]'
           );
           if (!offerBtn) {
             log(`No offer button found for ${href} — skipping`);
@@ -510,35 +512,28 @@
             continue;
           }
 
-          // Click the offer button to open modal
           offerBtn.click();
           await randomDelay(2, 4);
 
-          // Check for "already sent" indicator in modal
-          const alreadySent = document.querySelector(
-            '.offer-sent, .already-offered, [data-test="offer-already-sent"], ' +
-            'div:has(> p:contains("already sent")), .toast-notification'
+          const alreadySent = iDoc.querySelector(
+            '.offer-sent, .already-offered, [data-test="offer-already-sent"], .toast-notification'
           );
           if (alreadySent) {
             log(`Already sent offer for ${href} — skipping`);
             skipped++;
-            // Close modal if possible
-            const closeBtn = document.querySelector('.modal .close, .overlay .close, button[data-et-name="close"]');
+            const closeBtn = iDoc.querySelector('.modal .close, .overlay .close, button[data-et-name="close"]');
             if (closeBtn) closeBtn.click();
-            await randomDelay(1, 2);
             continue;
           }
 
-          // Find price input in offer modal and set discount
-          const priceInput = document.querySelector(
+          const priceInput = iDoc.querySelector(
             '.offer-modal input[type="text"], .offer-modal input[type="number"], ' +
             'input.offer-price, input[data-test="offer-price"], ' +
             '.modal input[name*="price"], .modal input[placeholder*="price" i], ' +
             '.modal input[class*="price"]'
           );
           if (priceInput) {
-            // Get current listing price from modal
-            const currentPriceEl = document.querySelector(
+            const currentPriceEl = iDoc.querySelector(
               '.offer-modal .current-price, .offer-modal .original-price, ' +
               '.modal .listing-price, .modal [class*="price"] span'
             );
@@ -549,50 +544,44 @@
             if (!currentPrice && priceEl) {
               currentPrice = parseFloat(priceEl.textContent.replace(/[^0-9.]/g, ""));
             }
-
             if (currentPrice > 0) {
               const offerPrice = (currentPrice * (1 - offerDiscount / 100)).toFixed(2);
-              // Clear and set new price
               priceInput.focus();
               priceInput.select();
-              document.execCommand("selectAll", false, null);
-              document.execCommand("insertText", false, offerPrice);
+              iframe.contentWindow.document.execCommand("selectAll", false, null);
+              iframe.contentWindow.document.execCommand("insertText", false, offerPrice);
               await randomDelay(0.5, 1);
             }
           }
 
-          // Click Send Offer button
-          const sendBtn = document.querySelector(
+          const sendBtn = iDoc.querySelector(
             '.offer-modal button[type="submit"], .offer-modal .send-offer, ' +
-            'button[data-et-name="send_offer"], .modal button:has(> span:contains("Send")), ' +
-            '.modal .btn-primary, button[data-test="send-offer"]'
+            'button[data-et-name="send_offer"], .modal .btn-primary, button[data-test="send-offer"]'
           );
           if (sendBtn) {
             sendBtn.click();
             offersSent++;
             incrementCounter();
             incrementUsage();
-
-            // Track offer usage for daily cap
             chrome.runtime.sendMessage({ type: "incrementOfferUsage" });
-
             updateStatus(`[${i + 1}/${toOffer.length}] Offer sent! (${offersSent} sent, ${skipped} skipped)`);
             log(`Offer sent for ${href} — ${offersSent} total`);
           } else {
             log(`No send button found in offer modal for ${href}`);
             skipped++;
-            const closeBtn = document.querySelector('.modal .close, .overlay .close, button[data-et-name="close"]');
+            const closeBtn = iDoc.querySelector('.modal .close, .overlay .close, button[data-et-name="close"]');
             if (closeBtn) closeBtn.click();
           }
 
-          // Longer delay between offers (5-12 sec as specified)
           await randomDelay(5, 12);
-
         } catch (e) {
           log(`Error sending offer for listing ${i}: ${e.message}`);
           skipped++;
         }
       }
+
+      // Cleanup
+      iframe.remove();
 
       updateStatus(`✅ Done! ${offersSent} offers sent, ${skipped} skipped.`);
       setRunning(false);
