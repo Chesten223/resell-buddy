@@ -27,6 +27,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pm-offer-max").value = settings?.poshmark?.offerMaxPerRun ?? 20;
     document.getElementById("pm-relist-max").value = settings?.poshmark?.relistMaxPerRun ?? 10;
     document.getElementById("pm-unfollow-count").value = settings?.poshmark?.autoUnfollowCount ?? 30;
+    document.getElementById("price-suggestion-toggle").checked = settings?.poshmark?.priceSuggestionEnabled !== false;
+    document.getElementById("bulk-drafts-toggle").checked = settings?.poshmark?.bulkDraftsEnabled !== false;
+    document.getElementById("smart-share-interval").value = settings?.poshmark?.smartShareInterval || 6;
+    document.getElementById("smart-share-times").value = (settings?.poshmark?.smartShareTimes || ["10:00","14:00","20:00"]).join(",");
+    if (settings?.poshmark?.smartShareEnabled) {
+      document.getElementById("smart-share-status").textContent = "✅ Smart share active";
+      document.getElementById("smart-share-status").className = "status pro";
+    }
 
     if (settings?.license?.key) {
       document.getElementById("license-key").value = settings.license.key;
@@ -55,6 +63,11 @@ document.addEventListener("DOMContentLoaded", () => {
         offerMinPrice: parseInt(document.getElementById("pm-offer-min-price").value) || 5,
         offerMaxPerRun: parseInt(document.getElementById("pm-offer-max").value) || 20,
         relistMaxPerRun: parseInt(document.getElementById("pm-relist-max")?.value) || 10,
+        priceSuggestionEnabled: document.getElementById("price-suggestion-toggle")?.checked !== false,
+        bulkDraftsEnabled: document.getElementById("bulk-drafts-toggle")?.checked !== false,
+        smartShareEnabled: false,
+        smartShareTimes: (document.getElementById("smart-share-times")?.value || "10:00,14:00,20:00").split(",").map(t => t.trim()),
+        smartShareInterval: parseInt(document.getElementById("smart-share-interval")?.value) || 6,
         autoUnfollowCount: parseInt(document.getElementById("pm-unfollow-count")?.value) || 30,
       },
       mercari: { autoLike: false, autoLikeCount: 30 },
@@ -129,6 +142,74 @@ document.addEventListener("DOMContentLoaded", () => {
         schedStatus.textContent = "Scheduler stopped";
         schedStatus.className = "status";
       }
+    });
+  });
+
+  // ── Smart Share Scheduler ──
+  document.getElementById("smart-share-enable").addEventListener("click", () => {
+    const times = document.getElementById("smart-share-times").value.split(",").map(t => t.trim());
+    const interval = parseInt(document.getElementById("smart-share-interval").value) || 6;
+    chrome.runtime.sendMessage({ type: "startSmartShare", times, interval }, (resp) => {
+      if (resp?.ok) {
+        document.getElementById("smart-share-status").textContent = "✅ Smart share active";
+        document.getElementById("smart-share-status").className = "status pro";
+      }
+    });
+  });
+  document.getElementById("smart-share-disable").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "stopSmartShare" }, (resp) => {
+      if (resp?.ok) {
+        document.getElementById("smart-share-status").textContent = "Smart share inactive";
+        document.getElementById("smart-share-status").className = "status";
+      }
+    });
+  });
+
+  // ── Bulk Drafts ──
+  function loadDrafts() {
+    chrome.runtime.sendMessage({ type: "getDrafts" }, (resp) => {
+      const list = document.getElementById("drafts-list");
+      if (!list) return;
+      const drafts = resp?.drafts || [];
+      if (drafts.length === 0) {
+        list.innerHTML = '<div style="color:#444;padding:4px">No drafts saved</div>';
+        return;
+      }
+      list.innerHTML = drafts.map(d =>
+        `<div style="display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px solid #111"><span>${d.title || 'Untitled'}</span><span style="color:#666">$${d.price || '?'}</span></div>`
+      ).join('');
+    });
+  }
+
+  document.getElementById("save-draft-btn")?.addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      if (!tabs[0]) return;
+      chrome.tabs.sendMessage(tabs[0].id, { type: "saveDraftFromPage" }, (resp) => {
+        if (resp?.ok) {
+          statusDiv.textContent = "✅ Draft saved!";
+          statusDiv.className = "status pro";
+          loadDrafts();
+        } else {
+          statusDiv.textContent = "❌ Could not save draft (Poshmark listing page?)";
+          statusDiv.className = "status err";
+        }
+      });
+    });
+  });
+
+  document.getElementById("view-drafts-btn")?.addEventListener("click", () => {
+    loadDrafts();
+  });
+
+  // ── CSV Export ──
+  document.getElementById("export-csv")?.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "exportAnalyticsCSV" }, (resp) => {
+      if (!resp?.csv) return;
+      const blob = new Blob([resp.csv], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "resellbuddy-analytics.csv"; a.click();
+      URL.revokeObjectURL(url);
     });
   });
 

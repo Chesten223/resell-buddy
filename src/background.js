@@ -16,6 +16,11 @@ const DEFAULT_SETTINGS = {
     offerMaxPerRun: 20,
     autoUnfollowCount: 30,
     relistMaxPerRun: 10,
+    priceSuggestionEnabled: true,
+    bulkDraftsEnabled: true,
+    smartShareEnabled: false,
+    smartShareTimes: ["10:00", "14:00", "20:00"],
+    smartShareInterval: 6,
   },
   mercari: {
     autoLike: false,
@@ -211,10 +216,105 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     });
     return true;
   }
+  if (msg.type === "getDrafts") {
+    chrome.storage.local.get(["rbDrafts"], (data) => {
+      sendResponse({ drafts: data.rbDrafts || [] });
+    });
+    return true;
+  }
+  if (msg.type === "saveDraft") {
+    chrome.storage.local.get(["rbDrafts"], (data) => {
+      const drafts = data.rbDrafts || [];
+      const existing = drafts.findIndex(d => d.id === msg.draft.id);
+      if (existing >= 0) drafts[existing] = msg.draft;
+      else drafts.push(msg.draft);
+      chrome.storage.local.set({ rbDrafts: drafts }, () => {
+        sendResponse({ ok: true, drafts });
+      });
+    });
+    return true;
+  }
+  if (msg.type === "deleteDraft") {
+    chrome.storage.local.get(["rbDrafts"], (data) => {
+      const drafts = (data.rbDrafts || []).filter(d => d.id !== msg.id);
+      chrome.storage.local.set({ rbDrafts: drafts }, () => {
+        sendResponse({ ok: true, drafts });
+      });
+    });
+    return true;
+  }
+  if (msg.type === "exportAnalyticsCSV") {
+    chrome.storage.local.get(["actionLog"], (data) => {
+      const log = data.actionLog || {};
+      let csv = "Date,Action,Platform,Timestamp\n";
+      for (const [date, actions] of Object.entries(log)) {
+        for (const a of actions) {
+          csv += `"${date}","${a.action}","${a.platform || ''}","${new Date(a.ts).toISOString()}"\n`;
+        }
+      }
+      sendResponse({ csv });
+    });
+    return true;
+  }
+  if (msg.type === "startSmartShare") {
+    const times = msg.times || ["10:00", "14:00", "20:00"];
+    const intervalHours = msg.interval || 6;
+    // Create alarm for smart share
+    chrome.alarms.create("resellbuddy-smartshare", {
+      periodInMinutes: intervalHours * 60,
+      delayInMinutes: 1,
+    });
+    chrome.storage.local.get("settings", (data) => {
+      const settings = data.settings || {};
+      settings.poshmark = settings.poshmark || {};
+      settings.poshmark.smartShareEnabled = true;
+      settings.poshmark.smartShareTimes = times;
+      settings.poshmark.smartShareInterval = intervalHours;
+      chrome.storage.local.set({ settings });
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
+  if (msg.type === "stopSmartShare") {
+    chrome.alarms.clear("resellbuddy-smartshare");
+    chrome.storage.local.get("settings", (data) => {
+      const settings = data.settings || {};
+      settings.poshmark = settings.poshmark || {};
+      settings.poshmark.smartShareEnabled = false;
+      chrome.storage.local.set({ settings });
+    });
+    sendResponse({ ok: true });
+    return true;
+  }
 });
 
 // Alarm-based scheduling for auto-actions
 chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "resellbuddy-smartshare") {
+    chrome.storage.local.get("settings", (data) => {
+      const settings = data.settings || {};
+      if (!settings.poshmark?.smartShareEnabled) return;
+      const now = new Date();
+      const est = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+      const hhmm = est.getHours().toString().padStart(2,'0') + ':' + est.getMinutes().toString().padStart(2,'0');
+      const times = settings.poshmark.smartShareTimes || ["10:00","14:00","20:00"];
+      // Trigger within 5 min window of scheduled time
+      const closeEnough = times.some(t => {
+        const [h,m] = t.split(':').map(Number);
+        const schedMin = h * 60 + m;
+        const nowMin = est.getHours() * 60 + est.getMinutes();
+        return Math.abs(nowMin - schedMin) <= 5;
+      });
+      if (closeEnough) {
+        chrome.tabs.query({ url: "https://poshmark.com/*" }, (tabs) => {
+          if (tabs[0]) {
+            chrome.tabs.sendMessage(tabs[0].id, { type: "runScheduled", platform: "poshmark", actionCount: 20 });
+          }
+        });
+      }
+    });
+    return;
+  }
   if (alarm.name.startsWith("resellbuddy-")) {
     const platform = alarm.name.replace("resellbuddy-", "");
 

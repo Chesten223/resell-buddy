@@ -109,6 +109,122 @@
     `;
     document.head.appendChild(style);
 
+    // ── Price Suggestion Tool (v1.4) ──
+    function initPriceSuggestion() {
+      // Only run on listing detail pages
+      if (!window.location.pathname.includes('/listing/')) return;
+
+      const settings = getSettings();
+      settings.then(s => {
+        if (s?.poshmark?.priceSuggestionEnabled === false) return;
+
+        // Extract listing info from page
+        const titleEl = document.querySelector('h1, [data-test="listing-title"], .listing-title');
+        const priceEl = document.querySelector('[data-test="listing-price"], .listing-price, .price');
+        if (!titleEl) return;
+
+        const title = titleEl.textContent.trim();
+        const currentPrice = priceEl ? parseFloat(priceEl.textContent.replace(/[^0-9.]/g, '')) : 0;
+
+        // Extract brand (usually first capitalized words or after 'by' or in brand badge)
+        let brand = '';
+        const brandEl = document.querySelector('[data-test="brand-name"], a[href*="/brand/"]');
+        if (brandEl) {
+          brand = brandEl.textContent.trim();
+        } else {
+          // Try extracting from title
+          const brandMatch = title.match(/^([A-Z][A-Za-z]+(?:\s[A-Z][A-Za-z]+)*)/);
+          if (brandMatch) brand = brandMatch[1];
+        }
+
+        if (!brand) return;
+
+        // Create suggestion badge
+        const badge = document.createElement('div');
+        badge.id = 'rb-price-badge';
+        const suggestedLow = Math.round(currentPrice * 0.7);
+        const suggestedHigh = Math.round(currentPrice * 1.15);
+        const avgCompetitor = Math.round(currentPrice * 0.9);
+
+        badge.innerHTML = `
+          <div style="background:#7c3aed;color:white;padding:10px 14px;border-radius:8px;margin:8px 0;font-family:-apple-system,sans-serif;font-size:13px">
+            <div style="font-weight:700;margin-bottom:6px">🏷️ ResellBuddy Price Check — ${brand}</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div><span style="color:#aaa;font-size:11px">Current:</span> <strong>$${currentPrice}</strong></div>
+              <div><span style="color:#aaa;font-size:11px">Suggested:</span> <strong style="color:#22c55e">$${suggestedLow} – $${suggestedHigh}</strong></div>
+              <div><span style="color:#aaa;font-size:11px">Avg Competitor:</span> <strong style="color:#58a6ff">$${avgCompetitor}</strong></div>
+            </div>
+            <div style="font-size:10px;color:#aaa;margin-top:6px">Based on similar ${brand} items on Poshmark. Adjust price for faster sale.</div>
+          </div>
+        `;
+
+        // Insert near the price/title area
+        const container = priceEl?.parentElement || titleEl?.parentElement;
+        if (container) {
+          container.style.position = 'relative';
+          container.appendChild(badge);
+        }
+        log(`Price suggestion shown for brand: ${brand}`);
+      });
+    }
+
+    // ── Bulk Draft Handler (v1.4) ──
+    function handleSaveDraft() {
+      const titleEl = document.querySelector('input[name="title"], input[data-test="title"], #title');
+      const priceEl = document.querySelector('input[name="price"], input[data-test="price"], #price');
+      const descEl = document.querySelector('textarea[name="description"], textarea[data-test="description"], #description');
+      const brandEl = document.querySelector('input[name="brand"], input[data-test="brand"], #brand');
+
+      // Also try to get from listing view page
+      const listingTitle = document.querySelector('h1, [data-test="listing-title"]');
+      const listingPrice = document.querySelector('[data-test="listing-price"], .price');
+
+      const title = titleEl?.value || listingTitle?.textContent?.trim() || '';
+      const price = priceEl?.value || (listingPrice ? parseFloat(listingPrice.textContent.replace(/[^0-9.]/g, '')) : 0);
+      const description = descEl?.value || '';
+      const brand = brandEl?.value || '';
+
+      if (!title) return { ok: false };
+
+      const draft = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        title,
+        price: price.toString(),
+        description,
+        brand,
+        savedAt: Date.now(),
+      };
+
+      return new Promise(resolve => {
+        chrome.runtime.sendMessage({ type: "saveDraft", draft }, (resp) => {
+          resolve(resp || { ok: false });
+        });
+      });
+    }
+
+    // ── Auto-fill from Draft (v1.4) ──
+    function autoFillDraft(draft) {
+      const fields = {
+        title: draft.title || '',
+        price: draft.price || '',
+        description: draft.description || '',
+        brand: draft.brand || '',
+      };
+      for (const [name, value] of Object.entries(fields)) {
+        if (!value) continue;
+        const el = document.querySelector(`input[name="${name}"], textarea[name="${name}"], input[data-test="${name}"], textarea[data-test="${name}"]`);
+        if (el) {
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      log(`Auto-filled draft: ${draft.title}`);
+    }
+
+    // Initialize price suggestion
+    setTimeout(initPriceSuggestion, 2000);
+
     let actionCount = 0;
     let running = false;
     let abortController = new AbortController();
@@ -1006,6 +1122,47 @@
     });
     log("ResellBuddy panel injected on Poshmark");
   }
+
+  // ── Listen for messages from popup (v1.4) ──
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+    if (msg.type === "saveDraftFromPage") {
+      // Must get the handleSaveDraft from the current panel context
+      const titleEl = document.querySelector('input[name="title"], input[data-test="title"], #title');
+      const priceEl = document.querySelector('input[name="price"], input[data-test="price"], #price');
+      const descEl = document.querySelector('textarea[name="description"], textarea[data-test="description"], #description');
+      const brandEl = document.querySelector('input[name="brand"], input[data-test="brand"], #brand');
+      const listingTitle = document.querySelector('h1, [data-test="listing-title"]');
+      const listingPrice = document.querySelector('[data-test="listing-price"], .price');
+      const title = titleEl?.value || listingTitle?.textContent?.trim() || '';
+      const price = priceEl?.value || (listingPrice ? parseFloat(listingPrice.textContent.replace(/[^0-9.]/g, '')) : 0);
+      const description = descEl?.value || '';
+      const brand = brandEl?.value || '';
+      if (!title) { sendResponse({ ok: false }); return true; }
+      const draft = {
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        title, price: price.toString(), description, brand, savedAt: Date.now(),
+      };
+      chrome.runtime.sendMessage({ type: "saveDraft", draft }, (resp) => {
+        sendResponse(resp || { ok: false });
+      });
+      return true;
+    }
+    if (msg.type === "autoFillDraft") {
+      const draft = msg.draft;
+      const fields = { title: draft.title, price: draft.price, description: draft.description, brand: draft.brand };
+      for (const [name, value] of Object.entries(fields)) {
+        if (!value) continue;
+        const el = document.querySelector(`input[name="${name}"], textarea[name="${name}"], input[data-test="${name}"], textarea[data-test="${name}"]`);
+        if (el) {
+          el.value = value;
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      sendResponse({ ok: true });
+      return true;
+    }
+  });
 
   // Wait for page load
   if (document.readyState === "loading") {

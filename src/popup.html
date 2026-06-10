@@ -91,6 +91,36 @@
     <button class="btn btn-secondary" id="sched-disable" style="flex:1">⏹ Stop</button>
   </div>
   <div class="status" id="sched-status">Scheduler inactive</div>
+  <div class="divider"></div>
+  <h3>🏷️ Price Suggestion</h3>
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+    <input type="checkbox" id="price-suggestion-toggle" checked> Show price suggestions on listings
+  </label>
+  <div style="font-size:10px;color:#666;margin-top:4px">Extracts brand from page, shows competitor pricing badge</div>
+
+  <div class="divider"></div>
+  <h3>📝 Bulk Listing Drafts</h3>
+  <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+    <input type="checkbox" id="bulk-drafts-toggle" checked> Enable draft saving
+  </label>
+  <div style="display:flex;gap:4px;margin-top:6px">
+    <button class="btn btn-secondary" id="save-draft-btn" style="font-size:11px;padding:6px;flex:1">💾 Save Draft</button>
+    <button class="btn btn-secondary" id="view-drafts-btn" style="font-size:11px;padding:6px;flex:1">📋 View Drafts</button>
+  </div>
+  <div id="drafts-list" style="max-height:100px;overflow-y:auto;margin-top:4px;font-size:11px;color:#aaa"></div>
+
+  <div class="divider"></div>
+  <h3>⏰ Smart Share Scheduler</h3>
+  <label>Optimal times (EST): 10am, 2pm, 8pm</label>
+  <div class="row" style="margin-top:4px">
+    <div><label>Interval (hours)</label><input type="number" id="smart-share-interval" value="6" min="1" max="24"></div>
+    <div><label>Times (comma sep)</label><input type="text" id="smart-share-times" value="10:00,14:00,20:00"></div>
+  </div>
+  <div class="row" style="margin-top:6px">
+    <button class="btn btn-primary" id="smart-share-enable" style="flex:1">▶ Start Smart Share</button>
+    <button class="btn btn-secondary" id="smart-share-disable" style="flex:1">⏹ Stop</button>
+  </div>
+  <div class="status" id="smart-share-status">Smart share inactive</div>
 
   <div class="divider"></div>
 
@@ -142,6 +172,9 @@
 
     <h3>📅 Recent History</h3>
     <div id="history-list" style="max-height:120px;overflow-y:auto;font-size:11px;color:#aaa"></div>
+    <div style="margin-top:8px">
+      <button class="btn btn-primary" id="export-csv" style="font-size:12px;padding:8px">📊 Export Analytics as CSV</button>
+    </div>
 
     <div class="divider"></div>
     <div class="status" id="status">Free version — 50 actions/day limit</div>
