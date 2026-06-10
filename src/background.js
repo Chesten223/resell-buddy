@@ -5,12 +5,15 @@ const DEFAULT_SETTINGS = {
   poshmark: {
     autoShare: false,
     autoShareCount: 50,
-    autoShareDelay: [3, 8], // random delay range in seconds
+    autoShareDelay: [3, 8],
     autoLike: false,
     autoLikeCount: 30,
     autoFollow: false,
     autoFollowCount: 20,
     shareToParty: false,
+    offerDiscount: 10,
+    offerMinPrice: 5,
+    offerMaxPerRun: 20,
   },
   mercari: {
     autoLike: false,
@@ -162,6 +165,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       chrome.storage.local.set({ settings });
     });
     sendResponse({ ok: true });
+    return true;
+  }
+  if (msg.type === "getOfferUsage") {
+    chrome.storage.local.get(["offerUsage", "offerUsageDate"], (data) => {
+      const today = new Date().toDateString();
+      const count = data.offerUsageDate === today ? (data.offerUsage || 0) : 0;
+      sendResponse({ count });
+    });
+    return true;
+  }
+  if (msg.type === "incrementOfferUsage") {
+    chrome.storage.local.get(["offerUsage", "offerUsageDate"], (data) => {
+      const today = new Date().toDateString();
+      let count = data.offerUsageDate === today ? (data.offerUsage || 0) + 1 : 1;
+      chrome.storage.local.set({ offerUsage: count, offerUsageDate: today });
+      sendResponse({ count });
+    });
     return true;
   }
 });

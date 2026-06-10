@@ -69,9 +69,11 @@
         <button class="rb-btn" id="rb-community">🔄 Share Community Feed</button>
         <button class="rb-btn" id="rb-like">❤️ Like Feed Items</button>
         <button class="rb-btn" id="rb-follow">👤 Follow Users</button>
+        <button class="rb-btn rb-premium-btn" id="rb-offer-likers">💰 Send Offers to Likers <span style="font-size:9px;color:#aaa">PRO</span></button>
         <button class="rb-btn" id="rb-stop" style="display:none;background:#ef4444;color:white;border-color:#ef4444">⏹ Stop</button>
         <div id="rb-status">Ready</div>
         <div id="rb-counter">0 actions</div>
+      </div>
       </div>
     `;
     document.body.appendChild(panel);
@@ -98,9 +100,9 @@
         transition: all .15s;
       }
       .rb-btn:hover { background: #7c3aed; color: white; border-color: #7c3aed; }
-      .rb-btn:disabled { opacity: .5; cursor: not-allowed; }
-      #rb-status { color: #888; font-size: 11px; margin-top: 8px; }
       #rb-counter { color: #22c55e; font-size: 12px; font-weight: 600; }
+      .rb-premium-btn { background: linear-gradient(135deg, #16213e 0%, #1a1040 100%); border-color: #7c3aed; }
+      .rb-premium-btn:hover { background: #7c3aed !important; }
     `;
     document.head.appendChild(style);
 
@@ -332,6 +334,269 @@
       setRunning(false);
     });
 
+
+    // ── Offer to Likers (Premium) ──
+    const MAX_OFFERS_PER_DAY = 20;
+
+    panel.querySelector("#rb-offer-likers").addEventListener("click", async () => {
+      if (running) return;
+
+      // Premium gate
+      const premium = await isPremium();
+      if (!premium) {
+        updateStatus("🔒 Offer to Likers requires Pro license");
+        alert("ResellBuddy: Send Offers to Likers is a Pro-only feature. Upgrade to unlock it!");
+        chrome.runtime.sendMessage({ type: "openPaymentPage" });
+        return;
+      }
+
+      abortController = new AbortController();
+      setRunning(true);
+      const settings = await getSettings();
+      const offerDiscount = settings?.poshmark?.offerDiscount ?? 10;
+      const minPrice = settings?.poshmark?.offerMinPrice ?? 5;
+      const maxOffers = settings?.poshmark?.offerMaxPerRun ?? 20;
+
+      // Daily cap
+      const usage = await getUsage();
+      const offerUsageToday = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: "getOfferUsage" }, (r) => resolve(r?.count || 0));
+      });
+      if (offerUsageToday >= MAX_OFFERS_PER_DAY) {
+        updateStatus(`⚠️ Daily offer limit reached (${MAX_OFFERS_PER_DAY}/day). Try again tomorrow.`);
+        setRunning(false);
+        return;
+      }
+      const remainingToday = MAX_OFFERS_PER_DAY - offerUsageToday;
+      const effectiveMax = Math.min(maxOffers, remainingToday);
+
+      if (effectiveMax <= 0) {
+        updateStatus("⚠️ No offers remaining today.");
+        setRunning(false);
+        return;
+      }
+
+      updateStatus("Scrolling closet to find liked listings...");
+      log(`Starting Offer to Likers — discount: ${offerDiscount}%, minPrice: $${minPrice}, max: ${effectiveMax}`);
+
+      // Scroll to load all listings
+      let lastImgCount = 0;
+      let stableCount = 0;
+      let scrollAttempts = 0;
+      while (stableCount < 2 && scrollAttempts < 30) {
+        scrollAttempts++;
+        const cards = document.querySelectorAll('.item-card, .closet-item, div[class*="tile"]');
+        const imgs = document.querySelectorAll('a[href*="/listing/"] img');
+        const count = Math.max(cards.length, imgs.length);
+        if (count === lastImgCount) {
+          stableCount++;
+        } else {
+          stableCount = 0;
+          lastImgCount = count;
+          const last = imgs[imgs.length - 1];
+          if (last) last.scrollIntoView({ behavior: "smooth" });
+        }
+        await randomDelay(2, 3);
+      }
+
+      // Collect listing links with their like indicators
+      const listingLinks = document.querySelectorAll('a[href*="/listing/"]');
+      const listings = [];
+      const seen = new Set();
+
+      for (const link of listingLinks) {
+        const href = link.getAttribute("href");
+        if (seen.has(href)) continue;
+        seen.add(href);
+
+        const card = link.closest('div[class*="col"]') || link.closest('.item-card, .closet-item, div[class*="tile"]');
+        if (!card) continue;
+
+        // Skip sold
+        if (card.querySelector('.sold-tag, .not-for-sale-tag')) continue;
+
+        // Look for like count indicators
+        const likeCountEl = card.querySelector(
+          '.social-action-bar__like-count, .like-count, [data-et-name="like"] .count, ' +
+          'span[class*="like"] span, .social-counts span:first-child'
+        );
+        let likeCount = 0;
+        if (likeCountEl) {
+          likeCount = parseInt(likeCountEl.textContent.trim(), 10) || 0;
+        }
+
+        // Also check for filled/active like icon as indicator
+        const likeIcon = card.querySelector('div[data-et-name="like"].liked, .social-action-bar__like.liked');
+        if (likeIcon && likeCount === 0) likeCount = 1;
+
+        if (likeCount > 0) {
+          listings.push({ href, card, likeCount });
+        }
+      }
+
+      if (listings.length === 0) {
+        updateStatus("No listings with likes found. Share more items to get likes first!");
+        setRunning(false);
+        return;
+      }
+
+      // Sort by like count descending (most likes first = highest conversion)
+      listings.sort((a, b) => b.likeCount - a.likeCount);
+
+      const toOffer = listings.slice(0, effectiveMax);
+
+      if (toOffer.length > 10) {
+        updateStatus(`⚠️ Found ${toOffer.length} items. Sending offers may take a while...`);
+      } else {
+        updateStatus(`Found ${toOffer.length} listings with likes. Sending offers...`);
+      }
+
+      let offersSent = 0;
+      let skipped = 0;
+      const originalUrl = window.location.href;
+
+      for (let i = 0; i < toOffer.length; i++) {
+        if (abortController.signal.aborted) {
+          updateStatus(`⏹ Stopped. Sent ${offersSent} offers.`);
+          break;
+        }
+
+        try {
+          const { href } = toOffer[i];
+          updateStatus(`[${i + 1}/${toOffer.length}] Opening listing...`);
+
+          // Navigate to the listing page
+          const fullUrl = href.startsWith("http") ? href : `https://poshmark.com${href}`;
+          window.location.href = fullUrl;
+
+          // Wait for page to load
+          await randomDelay(3, 5);
+          await new Promise((resolve) => {
+            const check = setInterval(() => {
+              if (document.querySelector('.listing, [data-test="listing-page"], .social-action-bar')) {
+                clearInterval(check);
+                resolve();
+              }
+            }, 500);
+            setTimeout(() => { clearInterval(check); resolve(); }, 10000);
+          });
+          await randomDelay(1, 2);
+
+          // Check price — skip if below threshold
+          const priceEl = document.querySelector(
+            '.listing-price, [data-test="listing-price"], .price-display, .listing__price'
+          );
+          if (priceEl) {
+            const priceText = priceEl.textContent.replace(/[^0-9.]/g, "");
+            const price = parseFloat(priceText);
+            if (!isNaN(price) && price < minPrice) {
+              log(`Skipping ${href} — price $${price} below threshold $${minPrice}`);
+              skipped++;
+              updateStatus(`[${i + 1}/${toOffer.length}] Skipped (price too low)`);
+              await randomDelay(1, 2);
+              continue;
+            }
+          }
+
+          // Find the Offer / Make Offer button
+          const offerBtn = document.querySelector(
+            'button[data-et-name="offer"], div[data-et-name="make_offer"], ' +
+            'button[data-et-name="make_offer"], .offer-button, ' +
+            'button:has(.offer-icon), a[data-et-name="offer"]'
+          );
+          if (!offerBtn) {
+            log(`No offer button found for ${href} — skipping`);
+            skipped++;
+            continue;
+          }
+
+          // Click the offer button to open modal
+          offerBtn.click();
+          await randomDelay(2, 4);
+
+          // Check for "already sent" indicator in modal
+          const alreadySent = document.querySelector(
+            '.offer-sent, .already-offered, [data-test="offer-already-sent"], ' +
+            'div:has(> p:contains("already sent")), .toast-notification'
+          );
+          if (alreadySent) {
+            log(`Already sent offer for ${href} — skipping`);
+            skipped++;
+            // Close modal if possible
+            const closeBtn = document.querySelector('.modal .close, .overlay .close, button[data-et-name="close"]');
+            if (closeBtn) closeBtn.click();
+            await randomDelay(1, 2);
+            continue;
+          }
+
+          // Find price input in offer modal and set discount
+          const priceInput = document.querySelector(
+            '.offer-modal input[type="text"], .offer-modal input[type="number"], ' +
+            'input.offer-price, input[data-test="offer-price"], ' +
+            '.modal input[name*="price"], .modal input[placeholder*="price" i], ' +
+            '.modal input[class*="price"]'
+          );
+          if (priceInput) {
+            // Get current listing price from modal
+            const currentPriceEl = document.querySelector(
+              '.offer-modal .current-price, .offer-modal .original-price, ' +
+              '.modal .listing-price, .modal [class*="price"] span'
+            );
+            let currentPrice = 0;
+            if (currentPriceEl) {
+              currentPrice = parseFloat(currentPriceEl.textContent.replace(/[^0-9.]/g, ""));
+            }
+            if (!currentPrice && priceEl) {
+              currentPrice = parseFloat(priceEl.textContent.replace(/[^0-9.]/g, ""));
+            }
+
+            if (currentPrice > 0) {
+              const offerPrice = (currentPrice * (1 - offerDiscount / 100)).toFixed(2);
+              // Clear and set new price
+              priceInput.focus();
+              priceInput.select();
+              document.execCommand("selectAll", false, null);
+              document.execCommand("insertText", false, offerPrice);
+              await randomDelay(0.5, 1);
+            }
+          }
+
+          // Click Send Offer button
+          const sendBtn = document.querySelector(
+            '.offer-modal button[type="submit"], .offer-modal .send-offer, ' +
+            'button[data-et-name="send_offer"], .modal button:has(> span:contains("Send")), ' +
+            '.modal .btn-primary, button[data-test="send-offer"]'
+          );
+          if (sendBtn) {
+            sendBtn.click();
+            offersSent++;
+            incrementCounter();
+            incrementUsage();
+
+            // Track offer usage for daily cap
+            chrome.runtime.sendMessage({ type: "incrementOfferUsage" });
+
+            updateStatus(`[${i + 1}/${toOffer.length}] Offer sent! (${offersSent} sent, ${skipped} skipped)`);
+            log(`Offer sent for ${href} — ${offersSent} total`);
+          } else {
+            log(`No send button found in offer modal for ${href}`);
+            skipped++;
+            const closeBtn = document.querySelector('.modal .close, .overlay .close, button[data-et-name="close"]');
+            if (closeBtn) closeBtn.click();
+          }
+
+          // Longer delay between offers (5-12 sec as specified)
+          await randomDelay(5, 12);
+
+        } catch (e) {
+          log(`Error sending offer for listing ${i}: ${e.message}`);
+          skipped++;
+        }
+      }
+
+      updateStatus(`✅ Done! ${offersSent} offers sent, ${skipped} skipped.`);
+      setRunning(false);
+    });
     log("ResellBuddy panel injected on Poshmark");
   }
 

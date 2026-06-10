@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "ResellBuddy - Poshmark & Mercari Automation",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "Automate your reselling on Poshmark & Mercari: auto-share, auto-like, bulk listing, price drops, and more. Save hours every day.",
   "permissions": ["activeTab", "storage", "scripting"],
   "host_permissions": [
