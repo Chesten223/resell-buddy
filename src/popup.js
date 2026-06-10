@@ -16,6 +16,8 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("pm-offer-discount").value = settings?.poshmark?.offerDiscount ?? 10;
     document.getElementById("pm-offer-min-price").value = settings?.poshmark?.offerMinPrice ?? 5;
     document.getElementById("pm-offer-max").value = settings?.poshmark?.offerMaxPerRun ?? 20;
+    document.getElementById("pm-relist-max").value = settings?.poshmark?.relistMaxPerRun ?? 10;
+    document.getElementById("pm-unfollow-count").value = settings?.poshmark?.autoUnfollowCount ?? 30;
 
     if (settings?.license?.key) {
       document.getElementById("license-key").value = settings.license.key;
@@ -55,6 +57,8 @@ document.addEventListener("DOMContentLoaded", () => {
         offerDiscount: parseInt(document.getElementById("pm-offer-discount").value) || 10,
         offerMinPrice: parseInt(document.getElementById("pm-offer-min-price").value) || 5,
         offerMaxPerRun: parseInt(document.getElementById("pm-offer-max").value) || 20,
+        relistMaxPerRun: parseInt(document.getElementById("pm-relist-max")?.value) || 10,
+        autoUnfollowCount: parseInt(document.getElementById("pm-unfollow-count")?.value) || 30,
       },
       mercari: { autoLike: false, autoLikeCount: 30 },
       schedule: {

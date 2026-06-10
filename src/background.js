@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS = {
     offerDiscount: 10,
     offerMinPrice: 5,
     offerMaxPerRun: 20,
+    autoUnfollowCount: 30,
+    relistMaxPerRun: 10,
   },
   mercari: {
     autoLike: false,
@@ -181,6 +183,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       let count = data.offerUsageDate === today ? (data.offerUsage || 0) + 1 : 1;
       chrome.storage.local.set({ offerUsage: count, offerUsageDate: today });
       sendResponse({ count });
+    });
+    return true;
+  }
+  // Log individual action for analytics
+  if (msg.type === "logAction") {
+    const { action, platform } = msg;
+    const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+    chrome.storage.local.get(["actionLog"], (data) => {
+      const log = data.actionLog || {};
+      if (!log[today]) log[today] = [];
+      log[today].push({ action, platform, ts: Date.now() });
+      // Keep only last 30 days
+      const keys = Object.keys(log).sort();
+      while (keys.length > 30) {
+        delete log[keys.shift()];
+      }
+      chrome.storage.local.set({ actionLog: log });
+      sendResponse({ ok: true });
+    });
+    return true;
+  }
+  // Get action history for analytics
+  if (msg.type === "getActionHistory") {
+    chrome.storage.local.get(["actionLog"], (data) => {
+      sendResponse({ history: data.actionLog || {} });
     });
     return true;
   }
