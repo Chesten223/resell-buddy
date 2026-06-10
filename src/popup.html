@@ -24,11 +24,26 @@
     .status { font-size: 12px; margin-top: 8px; text-align: center; }
     .status.pro { color: #22c55e; }
     .status.err { color: #e74c3c; }
-    .divider { border-top: 1px solid #222; margin: 12px 0; }
-  </style>
+    .tab-bar { display: flex; gap: 2px; margin-bottom: 12px; }
+    .tab-btn { flex: 1; padding: 6px; border: none; border-radius: 6px 6px 0 0; cursor: pointer; font-size: 12px; font-weight: 600; background: #0f3460; color: #aaa; }
+    .tab-btn.active { background: #7c3aed; color: white; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .stat-card { background: #0a0a1a; border: 1px solid #222; border-radius: 8px; padding: 10px; text-align: center; }
+    .stat-card .num { font-size: 24px; font-weight: 700; }
+    .stat-card .lbl { font-size: 10px; color: #666; text-transform: uppercase; margin-top: 2px; }
+    .bar { height: 6px; border-radius: 3px; background: #222; margin-top: 4px; }
+    .bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+    .history-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #111; font-size: 11px; }
 </head>
 <body>
   <h2>⚡ ResellBuddy</h2>
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="settings">⚙️ Settings</button>
+    <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-settings">
 
   <h3>Poshmark Settings</h3>
   <div class="row">
@@ -90,20 +105,48 @@
   <div class="status" id="status">Free version — 50 actions/day limit</div>
 
   <div class="divider"></div>
-  <h3>📊 Today's Activity</h3>
-  <div class="row" id="analytics" style="font-size:12px;color:#aaa">
-    <div><label>Actions Used</label><div id="analytics-used" style="font-size:20px;color:#22c55e">0</div></div>
-    <div><label>Remaining</label><div id="analytics-remaining" style="font-size:20px;color:#58a6ff">50</div></div>
-    <div><label>Total Saved</label><div id="analytics-saved" style="font-size:20px;color:#d2a8ff">0h</div></div>
-  </div>
-
-  <div class="divider"></div>
   <h3>💾 Backup</h3>
   <div class="row" style="gap:4px">
     <button class="btn btn-secondary" id="export-settings" style="font-size:11px;padding:6px">Export</button>
     <button class="btn btn-secondary" id="import-settings" style="font-size:11px;padding:6px">Import</button>
     <input type="file" id="import-file" accept=".json" style="display:none">
   </div>
+  </div><!-- end tab-settings -->
+
+  <div class="tab-panel" id="tab-analytics">
+    <h3 style="margin-bottom:8px">📊 Dashboard</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px">
+      <div class="stat-card"><div class="num" id="dash-total" style="color:#22c55e">0</div><div class="lbl">Today</div></div>
+      <div class="stat-card"><div class="num" id="dash-week" style="color:#58a6ff">0</div><div class="lbl">This Week</div></div>
+      <div class="stat-card"><div class="num" id="dash-saved" style="color:#d2a8ff">0h</div><div class="lbl">Time Saved</div></div>
+    </div>
+
+    <h3>📈 7-Day Trend</h3>
+    <div id="trend-chart" style="background:#0a0a1a;border-radius:8px;padding:8px;height:100px;display:flex;align-items:flex-end;gap:4px;margin-bottom:12px"></div>
+
+    <h3>📋 Action Breakdown</h3>
+    <div id="action-breakdown" style="margin-bottom:12px">
+      <div class="history-row"><span>📤 Shares</span><span id="bd-share">0</span></div>
+      <div class="bar"><div class="bar-fill" id="bd-share-bar" style="width:0%;background:#22c55e"></div></div>
+      <div class="history-row"><span>❤️ Likes</span><span id="bd-like">0</span></div>
+      <div class="bar"><div class="bar-fill" id="bd-like-bar" style="width:0%;background:#58a6ff"></div></div>
+      <div class="history-row"><span>👤 Follows</span><span id="bd-follow">0</span></div>
+      <div class="bar"><div class="bar-fill" id="bd-follow-bar" style="width:0%;background:#d2a8ff"></div></div>
+      <div class="history-row"><span>💰 Offers</span><span id="bd-offer">0</span></div>
+      <div class="bar"><div class="bar-fill" id="bd-offer-bar" style="width:0%;background:#f59e0b"></div></div>
+      <div class="history-row"><span>📦 Relists</span><span id="bd-relist">0</span></div>
+      <div class="bar"><div class="bar-fill" id="bd-relist-bar" style="width:0%;background:#ef4444"></div></div>
+      <div class="history-row"><span>🔄 Unfollows</span><span id="bd-unfollow">0</span></div>
+      <div class="bar"><div class="bar-fill" id="bd-unfollow-bar" style="width:0%;background:#8b5cf6"></div></div>
+    </div>
+
+    <h3>📅 Recent History</h3>
+    <div id="history-list" style="max-height:120px;overflow-y:auto;font-size:11px;color:#aaa"></div>
+
+    <div class="divider"></div>
+    <div class="status" id="status">Free version — 50 actions/day limit</div>
+  </div><!-- end tab-analytics -->
+
 </body>
 <script src="src/popup.js"></script>
 </body>

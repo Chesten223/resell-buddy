@@ -1,12 +1,21 @@
 // ResellBuddy — Popup UI
-// Settings, license, and quick actions
+// Settings, analytics dashboard, license, and quick actions
 
 document.addEventListener("DOMContentLoaded", () => {
-  const settingsDiv = document.getElementById("settings");
-  const licenseDiv = document.getElementById("license");
   const statusDiv = document.getElementById("status");
 
-  // Load settings
+  // ── Tab switching ──
+  document.querySelectorAll(".tab-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+      document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+      btn.classList.add("active");
+      document.getElementById("tab-" + btn.dataset.tab).classList.add("active");
+      if (btn.dataset.tab === "analytics") loadAnalytics();
+    });
+  });
+
+  // ── Load settings ──
   chrome.runtime.sendMessage({ type: "getSettings" }, (settings) => {
     document.getElementById("pm-share-count").value = settings?.poshmark?.autoShareCount || 50;
     document.getElementById("pm-like-count").value = settings?.poshmark?.autoLikeCount || 30;
@@ -28,19 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Load analytics
-  chrome.runtime.sendMessage({ type: "getUsage" }, (usage) => {
-    const used = usage?.usage || 0;
-    const isPremium = document.getElementById("status").textContent.includes("Pro");
-    const limit = isPremium ? 999 : 50;
-    document.getElementById("analytics-used").textContent = used;
-    document.getElementById("analytics-remaining").textContent = isPremium ? "∞" : String(Math.max(0, limit - used));
-    // Estimate time saved: ~30 seconds per action
-    const hoursSaved = (used * 30 / 3600).toFixed(1);
-    document.getElementById("analytics-saved").textContent = hoursSaved + "h";
-  });
-
-  // Save settings
+  // ── Save settings ──
   document.getElementById("save-settings").addEventListener("click", () => {
     const settings = {
       poshmark: {
@@ -71,7 +68,6 @@ document.addEventListener("DOMContentLoaded", () => {
       license: { key: "", isPremium: false, validatedAt: null },
     };
 
-    // Preserve license info
     chrome.runtime.sendMessage({ type: "getSettings" }, (current) => {
       if (current?.license) settings.license = current.license;
       if (current?.schedule) settings.schedule.enabled = current.schedule.enabled;
@@ -82,11 +78,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // License validation
+  // ── License ──
   document.getElementById("activate-license").addEventListener("click", () => {
     const key = document.getElementById("license-key").value.trim();
     if (!key) return;
-
     statusDiv.textContent = "Validating...";
     chrome.runtime.sendMessage({ type: "validateLicense", key }, (response) => {
       if (response?.valid) {
@@ -103,14 +98,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Scheduler controls
+  // ── Scheduler ──
   const schedStatus = document.getElementById("sched-status");
-
   document.getElementById("sched-enable").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "isPremium" }, (resp) => {
       if (!resp?.premium) {
         schedStatus.textContent = "❌ Pro required for scheduler";
-        schedStatus.className = "status err";
         return;
       }
       chrome.runtime.sendMessage({
@@ -139,15 +132,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Export/Import settings
+  // ── Export / Import ──
   document.getElementById("export-settings").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "getSettings" }, (settings) => {
       const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = "resellbuddy-settings.json";
-      a.click();
+      a.href = url; a.download = "resellbuddy-settings.json"; a.click();
       URL.revokeObjectURL(url);
     });
   });
@@ -174,4 +165,97 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     reader.readAsText(file);
   });
+
+  // ── Analytics Dashboard ──
+  function loadAnalytics() {
+    // Get today's usage
+    chrome.runtime.sendMessage({ type: "getUsage" }, (usage) => {
+      const todayUsed = usage?.usage || 0;
+      document.getElementById("dash-total").textContent = todayUsed;
+      // Time saved: ~30 sec per action
+      document.getElementById("dash-saved").textContent = (todayUsed * 30 / 3600).toFixed(1) + "h";
+    });
+
+    // Get action history
+    chrome.runtime.sendMessage({ type: "getActionHistory" }, (data) => {
+      const history = data?.history || {};
+      const days = Object.keys(history).sort().slice(-7);
+
+      // Week total
+      let weekTotal = 0;
+      const trendData = [];
+      for (const day of days) {
+        const dayActions = history[day] || [];
+        weekTotal += dayActions.length;
+        trendData.push({ date: day, count: dayActions.length });
+      }
+      document.getElementById("dash-week").textContent = weekTotal;
+
+      // 7-day trend bar chart
+      const chart = document.getElementById("trend-chart");
+      const maxCount = Math.max(...trendData.map(d => d.count), 1);
+      chart.innerHTML = "";
+      for (const d of trendData) {
+        const height = Math.max(4, (d.count / maxCount) * 80);
+        const dayLabel = d.date.slice(5); // MM-DD
+        const bar = document.createElement("div");
+        bar.style.cssText = `flex:1;height:${height}px;background:linear-gradient(to top,#7c3aed,#22c55e);border-radius:3px 3px 0 0;position:relative;min-width:0`;
+        bar.title = `${dayLabel}: ${d.count} actions`;
+        const label = document.createElement("div");
+        label.style.cssText = "font-size:8px;color:#666;text-align:center;margin-top:2px";
+        label.textContent = dayLabel.slice(3); // DD
+        const wrapper = document.createElement("div");
+        wrapper.style.cssText = "flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end";
+        wrapper.appendChild(bar);
+        wrapper.appendChild(label);
+        chart.appendChild(wrapper);
+      }
+
+      // Action breakdown (last 7 days)
+      const breakdown = { share: 0, like: 0, follow: 0, offer: 0, relist: 0, unfollow: 0 };
+      for (const day of days) {
+        for (const action of (history[day] || [])) {
+          const a = action.action || "";
+          if (a.includes("share")) breakdown.share++;
+          else if (a.includes("like")) breakdown.like++;
+          else if (a.includes("follow") && !a.includes("unfollow")) breakdown.follow++;
+          else if (a.includes("offer")) breakdown.offer++;
+          else if (a.includes("relist")) breakdown.relist++;
+          else if (a.includes("unfollow")) breakdown.unfollow++;
+        }
+      }
+
+      const maxAction = Math.max(...Object.values(breakdown), 1);
+      for (const [key, val] of Object.entries(breakdown)) {
+        const el = document.getElementById("bd-" + key);
+        if (el) el.textContent = val;
+        const barEl = document.getElementById("bd-" + key + "-bar");
+        if (barEl) barEl.style.width = (val / maxAction * 100) + "%";
+      }
+
+      // Recent history (last 20 actions)
+      const historyList = document.getElementById("history-list");
+      historyList.innerHTML = "";
+      const allActions = [];
+      for (const day of days) {
+        for (const a of (history[day] || [])) {
+          allActions.push({ ...a, date: day });
+        }
+      }
+      const recent = allActions.slice(-20).reverse();
+      for (const action of recent) {
+        const time = new Date(action.ts).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+        const row = document.createElement("div");
+        row.className = "history-row";
+        row.innerHTML = `<span style="color:#666">${action.date} ${time}</span><span>${action.action || "action"}</span>`;
+        historyList.appendChild(row);
+      }
+      if (recent.length === 0) {
+        historyList.innerHTML = '<div style="text-align:center;color:#444;padding:12px">No activity yet. Start using ResellBuddy!</div>';
+      }
+    });
+  }
+
+  // Load analytics on initial open (in case user is on analytics tab)
+  // Will be loaded when tab is clicked
 });
